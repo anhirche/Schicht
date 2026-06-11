@@ -503,14 +503,15 @@ async function gistLoad(){
     const r = await fetch(GH_RAW+'?t='+Date.now());
     if(!r.ok) return;
     const payload = await r.json();
-    const ghSaved  = payload.saved  ? new Date(payload.saved)  : new Date(0);
-    const locSaved = localStorage.getItem('schicht_saved') ? new Date(localStorage.getItem('schicht_saved')) : new Date(0);
-    if(payload.sha) ghSha = payload.sha;
-    if(ghSaved > locSaved){
-      if(payload.data)     data = payload.data;
-      if(payload.settings) settings = payload.settings;
-      saveStorage(); renderCalendar();
-    }
+    if(!payload.data) return;
+    // Always load from GitHub — it is the single source of truth
+    data = payload.data;
+    if(payload.settings) settings = payload.settings;
+    // Update local timestamp to match GitHub so we don't re-upload immediately
+    localStorage.setItem('schicht_data', JSON.stringify(data));
+    localStorage.setItem('schicht_settings', JSON.stringify(settings));
+    localStorage.setItem('schicht_saved', payload.saved || new Date().toISOString());
+    renderCalendar();
   }catch(e){}
 }
 
