@@ -240,6 +240,8 @@ function loadStorage(){
 function saveStorage(){
   localStorage.setItem('schicht_data',JSON.stringify(data));
   localStorage.setItem('schicht_settings',JSON.stringify(settings));
+  localStorage.setItem('schicht_saved',new Date().toISOString());
+  gistSave();
 }
 
 // ── Calendar ──────────────────────────────────────────────────────────────
@@ -489,6 +491,41 @@ ${PERSONS.map(p=>`<td colspan="3" style="font-size:8pt">${fmt(Math.round(tot[p].
 </table>`;
 }
 
+// ── GitHub Sync ───────────────────────────────────────────────────────────
+// ── GitHub Gist Sync (always-on, no login needed) ───────────────────────
+const GIST_RAW = 'https://gist.githubusercontent.com/AndreasHirche/d7ee18e7c1ed893d84a7786fe4a05158/raw/schicht_data.json?nocache=';
+const GIST_API = 'https://api.github.com/gists/d7ee18e7c1ed893d84a7786fe4a05158';
+const GIST_FILE = 'schicht_data.json';
+let GH_TOKEN = '';  // loaded from gist on first read
+
+async function gistLoad(){
+  try{
+    const r = await fetch(GIST_RAW + Date.now());
+    if(!r.ok) return;
+    const payload = await r.json();
+    if(payload._token) GH_TOKEN = payload._token;
+    const ghSaved  = payload.saved  ? new Date(payload.saved)  : new Date(0);
+    const locSaved = localStorage.getItem('schicht_saved') ? new Date(localStorage.getItem('schicht_saved')) : new Date(0);
+    if(ghSaved > locSaved){
+      if(payload.data)     data = payload.data;
+      if(payload.settings) settings = payload.settings;
+      saveStorage(); renderCalendar();
+    }
+  }catch(e){}
+}
+
+async function gistSave(){
+  if(!GH_TOKEN) return;
+  try{
+    const payload = {data, settings, saved: new Date().toISOString(), _token: GH_TOKEN};
+    await fetch(GIST_API, {
+      method: 'PATCH',
+      headers: {Authorization: 'token '+GH_TOKEN, 'Content-Type': 'application/json', Accept: 'application/vnd.github.v3+json'},
+      body: JSON.stringify({files: {[GIST_FILE]: {content: JSON.stringify(payload, null, 2)}}})
+    });
+  }catch(e){}
+}
+
 // ── Export / Import ───────────────────────────────────────────────────────
 function exportData(){
   const payload={data,settings,exported:new Date().toISOString()};
@@ -535,7 +572,7 @@ addSwipe(document.getElementById('daySheet'),()=>navigateDay(1),()=>navigateDay(
 loadStorage();
 const now=new Date();
 curYear=now.getFullYear();curMonth=now.getMonth();
-renderCalendar();
+gistLoad().then(()=>renderCalendar());
 </script>
 </body>
 </html>
