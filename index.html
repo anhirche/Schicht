@@ -500,20 +500,23 @@ const GH_TOK  = 'ghp_z9k21W'+'nKytZ4sMmYwye7OeEykuchBe186Ejt';
 let   ghSha   = null;
 
 async function gistLoad(){
+  // Use API endpoint — always fresh, no CDN cache
   try{
-    const r = await fetch(GH_RAW+'?t='+Date.now());
-    if(!r.ok) return;
-    const payload = await r.json();
-    if(!payload.data) return;
-    // Always load from GitHub — it is the single source of truth
+    const r = await fetch(GH_API, {headers:{Authorization:'token '+GH_TOK, Accept:'application/vnd.github.v3+json'}});
+    if(!r.ok){ console.error('gistLoad HTTP', r.status); return; }
+    const meta = await r.json();
+    ghSha = meta.sha;
+    // decode base64 content
+    const raw = atob(meta.content.replace(/\n/g,''));
+    const payload = JSON.parse(decodeURIComponent(escape(raw)));
+    if(!payload.data){ console.warn('gistLoad: no data field'); return; }
     data = payload.data;
     if(payload.settings) settings = payload.settings;
-    // Update local timestamp to match GitHub so we don't re-upload immediately
     localStorage.setItem('schicht_data', JSON.stringify(data));
     localStorage.setItem('schicht_settings', JSON.stringify(settings));
     localStorage.setItem('schicht_saved', payload.saved || new Date().toISOString());
-    renderCalendar();
-  }catch(e){}
+    console.log('gistLoad OK, entries:', Object.keys(data).length);
+  }catch(e){ console.error('gistLoad error', e); }
 }
 
 async function gistSave(){
@@ -579,7 +582,19 @@ addSwipe(document.getElementById('daySheet'),()=>navigateDay(1),()=>navigateDay(
 loadStorage();
 const now=new Date();
 curYear=now.getFullYear();curMonth=now.getMonth();
-gistLoad().then(()=>renderCalendar());
+gistLoad().then(()=>{
+  renderCalendar();
+  // show sync indicator
+  const btn = document.querySelector('.topbar-actions');
+  const chip = document.createElement('span');
+  chip.id='syncChip';
+  chip.style.cssText='font-size:.6rem;color:#4ade80;align-self:center;white-space:nowrap';
+  chip.textContent='☁✓';
+  chip.title='Daten von GitHub geladen';
+  btn.prepend(chip);
+}).catch(()=>{
+  renderCalendar();
+});
 </script>
 </body>
 </html>
