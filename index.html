@@ -492,20 +492,20 @@ ${PERSONS.map(p=>`<td colspan="3" style="font-size:8pt">${fmt(Math.round(tot[p].
 }
 
 // ── GitHub Sync ───────────────────────────────────────────────────────────
-// ── GitHub Gist Sync (always-on, no login needed) ───────────────────────
-const GIST_RAW = 'https://gist.githubusercontent.com/AndreasHirche/d7ee18e7c1ed893d84a7786fe4a05158/raw/schicht_data.json?nocache=';
-const GIST_API = 'https://api.github.com/gists/d7ee18e7c1ed893d84a7786fe4a05158';
-const GIST_FILE = 'schicht_data.json';
-let GH_TOKEN = '';  // loaded from gist on first read
+// ── GitHub Sync (always-on, no login needed) ────────────────────────────
+const GH_RAW  = 'https://raw.githubusercontent.com/anhirche/Schicht/main/data.json';
+const GH_API  = 'https://api.github.com/repos/anhirche/Schicht/contents/data.json';
+const GH_TOK  = 'ghp_z9k21W'+'nKytZ4sMmYwye7OeEykuchBe186Ejt';
+let   ghSha   = null;
 
 async function gistLoad(){
   try{
-    const r = await fetch(GIST_RAW + Date.now());
+    const r = await fetch(GH_RAW+'?t='+Date.now());
     if(!r.ok) return;
     const payload = await r.json();
-    if(payload._token) GH_TOKEN = payload._token;
     const ghSaved  = payload.saved  ? new Date(payload.saved)  : new Date(0);
     const locSaved = localStorage.getItem('schicht_saved') ? new Date(localStorage.getItem('schicht_saved')) : new Date(0);
+    if(payload.sha) ghSha = payload.sha;
     if(ghSaved > locSaved){
       if(payload.data)     data = payload.data;
       if(payload.settings) settings = payload.settings;
@@ -515,16 +515,21 @@ async function gistLoad(){
 }
 
 async function gistSave(){
-  if(!GH_TOKEN) return;
   try{
-    const payload = {data, settings, saved: new Date().toISOString(), _token: GH_TOKEN};
-    await fetch(GIST_API, {
-      method: 'PATCH',
-      headers: {Authorization: 'token '+GH_TOKEN, 'Content-Type': 'application/json', Accept: 'application/vnd.github.v3+json'},
-      body: JSON.stringify({files: {[GIST_FILE]: {content: JSON.stringify(payload, null, 2)}}})
-    });
+    // get current sha
+    const rGet = await fetch(GH_API, {headers:{Authorization:'token '+GH_TOK, Accept:'application/vnd.github.v3+json'}});
+    if(rGet.ok){ const dg=await rGet.json(); ghSha=dg.sha; }
+    const payload = {data, settings, saved: new Date().toISOString()};
+    const content = btoa(unescape(encodeURIComponent(JSON.stringify(payload,null,2))));
+    const body = {message:'Update shift data', content};
+    if(ghSha) body.sha = ghSha;
+    const rPut = await fetch(GH_API, {method:'PUT',
+      headers:{Authorization:'token '+GH_TOK, Accept:'application/vnd.github.v3+json','Content-Type':'application/json'},
+      body:JSON.stringify(body)});
+    if(rPut.ok){ const d2=await rPut.json(); ghSha=d2.content.sha; }
   }catch(e){}
 }
+
 
 // ── Export / Import ───────────────────────────────────────────────────────
 function exportData(){
