@@ -146,8 +146,8 @@ html,body{height:100%;overflow:hidden;font-family:'Inter',system-ui,sans-serif;b
   .print-modal{display:block!important;position:static!important;background:none!important;padding:0!important;overflow:visible!important}
   .print-actions{display:none!important}
   #printArea{max-width:none;padding:0}
-  @page{size:A4 landscape;margin:8mm}
 }
+@page{size:A4 landscape;margin:8mm}
 </style>
 </head>
 <body>
@@ -206,6 +206,7 @@ html,body{height:100%;overflow:hidden;font-family:'Inter',system-ui,sans-serif;b
 <!-- PRINT MODAL -->
 <div class="print-modal" id="printModal">
   <div class="print-actions">
+    <span style="font-size:.75rem;color:#6b7280;align-self:center;margin-right:auto">⚠ Im Druckdialog: <b>Querformat</b> wählen</span>
     <button class="btn-print-close" onclick="closePrint()">✕ Schließen</button>
     <button class="btn-print-go" onclick="window.print()">🖨️ Drucken / PDF</button>
   </div>
